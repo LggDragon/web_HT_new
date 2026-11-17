@@ -1,70 +1,76 @@
 /* ============================================================================
    HTSOLUTIONLLC Interactive Layer
    - Mobile drawer navigation
-   - Signature Move: Scroll-driven Channel Attribution Trace + cross-page brief sync
    - Peak Workbench: Scroll/tab channel selector + Break-even ROAS & budget allocator
-   - Validated Lead Intake Form with local brief export (no false network success)
+   - Calculator-to-Form sync ("Apply this configuration to Audit Form") + cross-page persistence
+   - Validated Lead Intake Form (static browser persistence, no false network success)
    ============================================================================ */
 
 (function () {
   "use strict";
 
   const STORAGE_KEY = "htsolution_audit_state_v1";
+  const WB_BLOCK_START = "[Estimated Configuration from HTSOLUTIONLLC Workbench]";
+  const WB_BLOCK_END = "[/Workbench Configuration]";
+
+  const DEFAULT_STATE = {
+    budget: 60,
+    aov: 850000,
+    margin: 38,
+    goal: "ecom",
+    applied: false,
+    appliedBudgetTier: "30-80",
+    appliedNotesBlock: ""
+  };
 
   const CHANNEL_DATA = {
     meta: {
       key: "meta",
       label: "Facebook / Meta Ads",
-      role: "Tạo nhu cầu mới & Retargeting đa tầng",
+      role: "Demand Generation & Multi-Tier Retargeting",
       structure: "70% Broad / Advantage+ · 30% Dynamic Retargeting",
       tracking: "Meta Pixel + Conversions API (CAPI Server-Side)",
-      cadence: "Test 4–6 góc creative mới mỗi tuần",
-      summary: "Tối ưu CPA thông qua luồng creative liên tục và tín hiệu CAPI chống thất thoát đơn hàng iOS.",
+      cadence: "Test 4–6 new creative angles weekly",
+      summary: "Optimize CPA through continuous creative iteration and server-side CAPI signals to prevent iOS conversion loss.",
       image: "assets/images/service-meta.jpg",
-      imageAlt: "Điện thoại thông minh hiển thị các ứng dụng mạng xã hội và tin nhắn đặt trên bàn phím laptop"
+      imageAlt: "Smartphone displaying social media and messaging apps resting on a laptop keyboard"
     },
     google: {
       key: "google",
       label: "Google Ads (Search & PMax)",
-      role: "Đón đầu nhu cầu tìm kiếm có ý định mua cao",
+      role: "Capturing High-Intent Search Demand",
       structure: "Brand Search + Non-Brand Exact + Shopping / PMax",
       tracking: "Google Tag Manager + GA4 Enhanced Conversions",
-      cadence: "Lọc Negative Keywords & tối ưu Feed hàng tuần",
-      summary: "Bắt trọn khách hàng đang chủ động tìm dịch vụ/sản phẩm, đối soát chéo số liệu trung thực qua GA4.",
+      cadence: "Weekly negative keyword audits & feed optimization",
+      summary: "Capture buyers actively searching for your products and services, cross-verifying verified conversions via GA4.",
       image: "assets/images/service-google.jpg",
-      imageAlt: "Laptop hiển thị biểu đồ đường, bản đồ nhiệt địa lý và biểu đồ tròn trên Google Analytics"
+      imageAlt: "Laptop displaying line charts, geographic heatmaps, and pie charts on Google Analytics"
     },
     tiktok: {
       key: "tiktok",
       label: "TikTok Ads & Spark Ads",
-      role: "Bùng nổ nhận diện & Chuyển đổi video ngắn",
+      role: "Viral Awareness & Short-Form Video Conversions",
       structure: "Spark Ads UGC + In-Feed Conversion + Retargeting",
-      tracking: "TikTok Pixel + Events API + UTM chuẩn hóa",
-      cadence: "Thay hook 3 giây đầu mỗi 7–10 ngày chống fatigue",
-      summary: "Khai thác định dạng video tự nhiên giữ chân người xem 3 giây đầu để mở rộng tệp khách hàng mới.",
+      tracking: "TikTok Pixel + Events API + Standardized UTMs",
+      cadence: "Refresh 3-second hooks every 7–10 days to prevent creative fatigue",
+      summary: "Leverage native video formats that capture viewers in the first 3 seconds to systematically expand new customer pools.",
       image: "assets/images/service-tiktok.jpg",
-      imageAlt: "Điện thoại đặt trên chân máy tripod đang ghi hình nhà sáng tạo nội dung trong studio sáng"
+      imageAlt: "Smartphone mounted on a tripod recording a content creator in a bright studio"
     }
   };
 
   const GOAL_SPLITS = {
-    ecom:   { label: "Bán hàng E-commerce / Retail", meta: 40, google: 35, tiktok: 25 },
-    lead:   { label: "Thu thập Lead B2B / Dịch vụ",  meta: 35, google: 50, tiktok: 15 },
-    launch: { label: "Ra mắt sản phẩm / Scale mới",  meta: 35, google: 20, tiktok: 45 }
+    ecom:   { label: "E-commerce / Retail Sales",   meta: 40, google: 35, tiktok: 25 },
+    lead:   { label: "B2B / Service Lead Gen",       meta: 35, google: 50, tiktok: 15 },
+    launch: { label: "Product Launch / New Scale",   meta: 35, google: 20, tiktok: 45 }
   };
 
   function readState() {
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return Object.assign({}, DEFAULT_STATE, JSON.parse(raw));
     } catch (_) {}
-    return {
-      channel: "all",
-      budget: 60,
-      aov: 850000,
-      margin: 38,
-      goal: "ecom"
-    };
+    return Object.assign({}, DEFAULT_STATE);
   }
 
   function saveState(patch) {
@@ -76,14 +82,71 @@
   }
 
   function formatVND(amount) {
-    if (!Number.isFinite(amount)) return "0 đ";
-    return Math.round(amount).toLocaleString("vi-VN") + " đ";
+    if (!Number.isFinite(amount)) return "0 VND";
+    return Math.round(amount).toLocaleString("en-US") + " VND";
   }
 
   function resolveAssetPath(relPath) {
     const rootPrefix = document.documentElement.getAttribute("data-root") || ".";
     if (rootPrefix === ".") return relPath;
     return rootPrefix.replace(/\/$/, "") + "/" + relPath;
+  }
+
+  function getBudgetTier(budgetMil) {
+    if (budgetMil < 15) return "5-15";
+    if (budgetMil < 30) return "15-30";
+    if (budgetMil < 80) return "30-80";
+    if (budgetMil < 200) return "80-200";
+    return "200+";
+  }
+
+  function buildWorkbenchSummary(st) {
+    const split = GOAL_SPLITS[st.goal] || GOAL_SPLITS.ecom;
+    const roas = (1 / (st.margin / 100)).toFixed(2);
+    const maxCpa = formatVND(st.aov * (st.margin / 100));
+    return [
+      WB_BLOCK_START,
+      "- Primary Goal: " + split.label,
+      "- Planned Monthly Budget: " + st.budget + " million VND/mo (AOV: " + formatVND(st.aov) + ", Gross Margin: " + st.margin + "%)",
+      "- Break-even ROAS: " + roas + "x | Max Allowable CPA: " + maxCpa,
+      "- Benchmark Allocation: Meta " + split.meta + "% / Google " + split.google + "% / TikTok " + split.tiktok + "%",
+      WB_BLOCK_END
+    ].join("\n");
+  }
+
+  function upsertWorkbenchNotes(currentText, summaryBlock) {
+    const raw = (currentText || "").trim();
+    const blockPattern = /\[Estimated Configuration from HTSOLUTIONLLC Workbench\][\s\S]*?\[\/Workbench Configuration\]/g;
+    const cleaned = raw.replace(blockPattern, "").trim();
+    if (!summaryBlock) return cleaned;
+    if (!cleaned) return summaryBlock;
+    return cleaned + "\n\n" + summaryBlock;
+  }
+
+  function flashFieldSynced(el) {
+    if (!el) return;
+    el.classList.remove("is-synced");
+    void el.offsetWidth;
+    el.classList.add("is-synced");
+    setTimeout(function () {
+      el.classList.remove("is-synced");
+    }, 1800);
+  }
+
+  function applyBriefToForm(tier, summaryBlock, highlight) {
+    const budgetSelect = document.getElementById("lead-budget");
+    const notesInput = document.getElementById("lead-notes");
+    if (budgetSelect && tier) {
+      const hasOption = Array.from(budgetSelect.options).some(function (opt) {
+        return opt.value === tier;
+      });
+      if (hasOption) budgetSelect.value = tier;
+      if (highlight) flashFieldSynced(budgetSelect);
+    }
+    if (notesInput && summaryBlock) {
+      notesInput.value = upsertWorkbenchNotes(notesInput.value, summaryBlock);
+      if (highlight) flashFieldSynced(notesInput);
+    }
   }
 
   /* ------------------------------------------------ Mobile Nav Drawer -- */
@@ -93,6 +156,7 @@
     if (!btn || !drawer) return;
 
     function closeDrawer() {
+      if (!drawer.classList.contains("is-open")) return;
       drawer.classList.remove("is-open");
       btn.setAttribute("aria-expanded", "false");
     }
@@ -106,97 +170,24 @@
       link.addEventListener("click", closeDrawer);
     });
 
+    document.addEventListener("click", function (e) {
+      if (!drawer.classList.contains("is-open")) return;
+      const target = e.target;
+      if (target instanceof Node && !drawer.contains(target) && !btn.contains(target)) {
+        closeDrawer();
+      }
+    });
+
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && drawer.classList.contains("is-open")) {
         closeDrawer();
         btn.focus();
       }
     });
-  }
 
-  /* ----------------------------------- Signature Move: Channel Trace -- */
-  function initChannelTrace() {
-    const trace = document.querySelector(".ht-trace");
-    if (!trace) return;
-
-    const buttons = trace.querySelectorAll("[data-trace-channel]");
-    const statusEl = trace.querySelector("[data-trace-status]");
-    const pathEl = trace.querySelector("[data-trace-path]");
-    const dotEl = trace.querySelector("[data-trace-dot]");
-
-    function applyChannelSelection(channelKey) {
-      const st = saveState({ channel: channelKey });
-      buttons.forEach(function (b) {
-        const active = b.getAttribute("data-trace-channel") === channelKey;
-        b.setAttribute("aria-pressed", String(active));
-      });
-
-      if (statusEl) {
-        const map = {
-          all: "Đang theo dõi: Hệ sinh thái 3 kênh (Meta + Google + TikTok)",
-          meta: "Đang ưu tiên: Facebook / Meta Ads (CAPI + Creative Sprint)",
-          google: "Đang ưu tiên: Google Ads (Search Intent + GA4 + PMax)",
-          tiktok: "Đang ưu tiên: TikTok Ads (3s Hook + Spark Ads)"
-        };
-        statusEl.textContent = map[channelKey] || map.all;
-      }
-
-      syncLeadChannelCheckboxes(st.channel);
-    }
-
-    buttons.forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        const ch = btn.getAttribute("data-trace-channel");
-        applyChannelSelection(ch);
-        if (ch !== "all" && window.htSelectWorkbenchChannel) {
-          window.htSelectWorkbenchChannel(ch, true);
-        }
-      });
-    });
-
-    function updateScrollSignal() {
-      const doc = document.documentElement;
-      const maxScroll = Math.max(1, doc.scrollHeight - window.innerHeight);
-      const p = Math.min(1, Math.max(0, window.scrollY / maxScroll));
-
-      if (pathEl) {
-        const totalLen = 120;
-        pathEl.style.strokeDasharray = String(totalLen);
-        pathEl.style.strokeDashoffset = String(Math.round(totalLen * (1 - p)));
-      }
-      if (dotEl) {
-        dotEl.setAttribute("cx", String(8 + Math.round(p * 80)));
-      }
-    }
-
-    const initial = readState();
-    applyChannelSelection(initial.channel || "all");
-    updateScrollSignal();
-
-    let ticking = false;
-    window.addEventListener("scroll", function () {
-      if (!ticking) {
-        ticking = true;
-        requestAnimationFrame(function () {
-          updateScrollSignal();
-          ticking = false;
-        });
-      }
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 860) closeDrawer();
     }, { passive: true });
-  }
-
-  function syncLeadChannelCheckboxes(channelKey) {
-    const form = document.getElementById("ht-lead-form-el");
-    if (!form) return;
-    const boxes = form.querySelectorAll('input[name="channels"]');
-    if (!boxes.length) return;
-    boxes.forEach(function (box) {
-      if (channelKey === "all") {
-        box.checked = true;
-      } else {
-        box.checked = box.value === channelKey;
-      }
-    });
   }
 
   /* ----------------------- Peak Act Workbench & Break-Even Calculator -- */
@@ -204,7 +195,7 @@
     const workbench = document.getElementById("channel-workbench");
     if (!workbench) return;
 
-    const tabs = workbench.querySelectorAll("[data-wb-tab]");
+    const tabs = Array.from(workbench.querySelectorAll("[data-wb-tab]"));
     const imgEl = workbench.querySelector("[data-wb-img]");
     const titleEl = workbench.querySelector("[data-wb-title]");
     const summaryEl = workbench.querySelector("[data-wb-summary]");
@@ -223,7 +214,9 @@
       if (isManual) userLocked = true;
 
       tabs.forEach(function (t) {
-        t.setAttribute("aria-selected", String(t.getAttribute("data-wb-tab") === data.key));
+        const active = t.getAttribute("data-wb-tab") === data.key;
+        t.setAttribute("aria-selected", String(active));
+        t.setAttribute("tabindex", active ? "0" : "-1");
       });
 
       if (titleEl) titleEl.textContent = data.label;
@@ -241,16 +234,20 @@
       }
     }
 
-    window.htSelectWorkbenchChannel = function (key, manual) {
-      renderChannel(key, Boolean(manual));
-    };
-
-    tabs.forEach(function (tab) {
+    tabs.forEach(function (tab, index) {
       tab.addEventListener("click", function () {
         const key = tab.getAttribute("data-wb-tab");
         renderChannel(key, true);
-        const traceBtn = document.querySelector('[data-trace-channel="' + key + '"]');
-        if (traceBtn) traceBtn.click();
+      });
+
+      tab.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        const dir = e.key === "ArrowRight" ? 1 : -1;
+        const nextTab = tabs[(index + dir + tabs.length) % tabs.length];
+        if (!nextTab) return;
+        renderChannel(nextTab.getAttribute("data-wb-tab"), true);
+        nextTab.focus();
       });
     });
 
@@ -272,7 +269,7 @@
             meterFill.style.transform = "scaleX(" + clamped.toFixed(3) + ")";
           }
           if (meterPct) {
-            meterPct.textContent = Math.round(clamped * 100) + "% hành trình phễu";
+            meterPct.textContent = Math.round(clamped * 100) + "% funnel journey";
           }
           let target = currentChannel;
           if (!userLocked && window.innerWidth > 960) {
@@ -307,12 +304,27 @@
     const legendTiktok = document.getElementById("leg-tiktok");
     const applyBtn = document.getElementById("calc-apply-btn");
 
-    function updateCalculator() {
-      const budgetMil = Math.max(5, Math.min(5000, parseFloat(budgetIn.value) || 60));
-      const aov = Math.max(50000, parseFloat(aovIn.value) || 850000);
-      const marginPct = Math.max(5, Math.min(90, parseFloat(marginIn.value) || 38));
+    function parseClamped(inputEl, min, max, fallback) {
+      const raw = parseFloat(inputEl.value);
+      if (!Number.isFinite(raw)) return fallback;
+      if (max !== null) return Math.max(min, Math.min(max, raw));
+      return Math.max(min, raw);
+    }
+
+    function updateCalculator(commitInputs) {
+      if (!budgetIn || !aovIn || !marginIn || !goalIn) return;
+
+      const budgetMil = parseClamped(budgetIn, 5, 5000, 60);
+      const aov = parseClamped(aovIn, 50000, null, 850000);
+      const marginPct = parseClamped(marginIn, 5, 90, 38);
       const goalKey = goalIn.value || "ecom";
       const split = GOAL_SPLITS[goalKey] || GOAL_SPLITS.ecom;
+
+      if (commitInputs) {
+        budgetIn.value = String(budgetMil);
+        aovIn.value = String(aov);
+        marginIn.value = String(marginPct);
+      }
 
       const breakEvenRoas = 1 / (marginPct / 100);
       const maxCpa = aov * (marginPct / 100);
@@ -329,9 +341,9 @@
       if (segGoogle) segGoogle.style.width = split.google + "%";
       if (segTiktok) segTiktok.style.width = split.tiktok + "%";
 
-      if (legendMeta) legendMeta.textContent = "Meta " + split.meta + "% (" + (metaVnd / 1e6).toFixed(1) + " tr)";
-      if (legendGoogle) legendGoogle.textContent = "Google " + split.google + "% (" + (googleVnd / 1e6).toFixed(1) + " tr)";
-      if (legendTiktok) legendTiktok.textContent = "TikTok " + split.tiktok + "% (" + (tiktokVnd / 1e6).toFixed(1) + " tr)";
+      if (legendMeta) legendMeta.textContent = "Meta " + split.meta + "% (" + (metaVnd / 1e6).toFixed(1) + "M)";
+      if (legendGoogle) legendGoogle.textContent = "Google " + split.google + "% (" + (googleVnd / 1e6).toFixed(1) + "M)";
+      if (legendTiktok) legendTiktok.textContent = "TikTok " + split.tiktok + "% (" + (tiktokVnd / 1e6).toFixed(1) + "M)";
 
       saveState({
         budget: budgetMil,
@@ -343,54 +355,80 @@
 
     if (budgetIn && aovIn && marginIn && goalIn) {
       const st = readState();
-      budgetIn.value = st.budget || 60;
-      aovIn.value = st.aov || 850000;
-      marginIn.value = st.margin || 38;
+      budgetIn.value = String(st.budget || 60);
+      aovIn.value = String(st.aov || 850000);
+      marginIn.value = String(st.margin || 38);
       goalIn.value = st.goal || "ecom";
 
-      [budgetIn, aovIn, marginIn, goalIn].forEach(function (el) {
-        el.addEventListener("input", updateCalculator);
-        el.addEventListener("change", updateCalculator);
+      [budgetIn, aovIn, marginIn].forEach(function (el) {
+        el.addEventListener("input", function () { updateCalculator(false); });
+        el.addEventListener("change", function () { updateCalculator(true); });
+        el.addEventListener("blur", function () { updateCalculator(true); });
       });
-      updateCalculator();
+      goalIn.addEventListener("change", function () { updateCalculator(true); });
+      updateCalculator(false);
     }
 
     if (applyBtn) {
-      applyBtn.addEventListener("click", function () {
-        const st = readState();
-        const split = GOAL_SPLITS[st.goal] || GOAL_SPLITS.ecom;
-        const roas = (1 / (st.margin / 100)).toFixed(2);
-        const maxCpa = formatVND(st.aov * (st.margin / 100));
+      const originalHtml = applyBtn.innerHTML;
+      let feedbackTimer = 0;
 
-        const budgetSelect = document.getElementById("lead-budget");
-        const notesInput = document.getElementById("lead-notes");
-        if (budgetSelect) {
-          if (st.budget < 30) budgetSelect.value = "15-30";
-          else if (st.budget < 80) budgetSelect.value = "30-80";
-          else if (st.budget < 200) budgetSelect.value = "80-200";
-          else budgetSelect.value = "200+";
-        }
-        if (notesInput) {
-          notesInput.value =
-            "Cấu hình ước tính từ Workbench HTSOLUTIONLLC:\n" +
-            "- Mục tiêu: " + split.label + "\n" +
-            "- Ngân sách dự kiến: " + st.budget + " triệu VNĐ/tháng (AOV " + formatVND(st.aov) + ", Biên gộp " + st.margin + "%)\n" +
-            "- Break-even ROAS: " + roas + "x | CPA trần: " + maxCpa + "\n" +
-            "- Phân bổ tham chiếu: Meta " + split.meta + "% / Google " + split.google + "% / TikTok " + split.tiktok + "%";
-        }
-        const leadSection = document.getElementById("lead-form");
-        if (leadSection) {
-          leadSection.scrollIntoView({ behavior: "smooth" });
-          const nameField = document.getElementById("lead-name");
-          if (nameField) {
-            setTimeout(function () { nameField.focus(); }, 350);
+      applyBtn.addEventListener("click", function () {
+        updateCalculator(true);
+        const st = readState();
+        const tier = getBudgetTier(st.budget);
+        const summaryBlock = buildWorkbenchSummary(st);
+
+        saveState({
+          applied: true,
+          appliedBudgetTier: tier,
+          appliedNotesBlock: summaryBlock
+        });
+
+        applyBriefToForm(tier, summaryBlock, true);
+
+        const formEl = document.getElementById("ht-lead-form-el");
+        if (formEl) {
+          const boxes = Array.from(formEl.querySelectorAll('input[name="channels"]'));
+          const anyChecked = boxes.some(function (box) { return box.checked; });
+          if (!anyChecked) {
+            boxes.forEach(function (box) { box.checked = true; });
           }
+        }
+
+        clearTimeout(feedbackTimer);
+        applyBtn.textContent = "Configuration Applied to Audit Form ✓";
+        feedbackTimer = setTimeout(function () {
+          applyBtn.innerHTML = originalHtml;
+        }, 2200);
+
+        const scrollTarget =
+          document.querySelector("#lead-form .ht-form-card") ||
+          document.getElementById("lead-form");
+        if (scrollTarget) {
+          const nameField = document.getElementById("lead-name");
+          const notesField = document.getElementById("lead-notes");
+          const focusTarget = nameField && !nameField.value.trim() ? nameField : notesField;
+
+          let focused = false;
+          function focusAfterScroll() {
+            if (focused || !focusTarget) return;
+            focused = true;
+            try {
+              focusTarget.focus({ preventScroll: true });
+            } catch (_) {}
+          }
+
+          if ("onscrollend" in window) {
+            window.addEventListener("scrollend", focusAfterScroll, { once: true });
+          }
+          setTimeout(focusAfterScroll, 800);
+          scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       });
     }
 
-    const st = readState();
-    renderChannel(st.channel !== "all" ? st.channel : "meta", false);
+    renderChannel("meta", false);
   }
 
   /* ----------------------------------------- Lead Intake Form Validation -- */
@@ -399,12 +437,11 @@
     if (!form) return;
 
     const statusBox = document.getElementById("ht-lead-status");
-    const downloadBtn = document.getElementById("ht-download-brief");
-    const copyBtn = document.getElementById("ht-copy-brief");
-    let latestBriefText = "";
 
     const st = readState();
-    syncLeadChannelCheckboxes(st.channel || "all");
+    if (st.applied && st.appliedNotesBlock) {
+      applyBriefToForm(st.appliedBudgetTier, st.appliedNotesBlock, false);
+    }
 
     form.addEventListener("submit", function (e) {
       e.preventDefault();
@@ -421,7 +458,7 @@
 
       if (!name || !contact || selectedChannels.length === 0) {
         statusBox.className = "ht-form-status is-visible ht-form-status--err";
-        statusBox.textContent = "Vui lòng nhập họ tên, số điện thoại/email liên hệ và chọn ít nhất 1 nền tảng quảng cáo cần Audit.";
+        statusBox.textContent = "Please enter your full name, contact phone/email, and select at least one advertising channel for the audit.";
         return;
       }
 
@@ -430,24 +467,12 @@
         agency: "HTSOLUTIONLLC",
         clientName: name,
         contact: contact,
-        company: company || "(Chưa cung cấp)",
-        websiteOrFanpage: website || "(Chưa cung cấp)",
+        company: company || "(Not provided)",
+        websiteOrFanpage: website || "(Not provided)",
         channels: selectedChannels,
         monthlyBudgetTier: budget,
-        notes: notes || "(Không có ghi chú thêm)"
+        notes: notes || "(No additional notes)"
       };
-
-      latestBriefText =
-        "HỒ SƠ YÊU CẦU AUDIT ADS - HTSOLUTIONLLC\n" +
-        "========================================\n" +
-        "Thời gian tạo: " + new Date().toLocaleString("vi-VN") + "\n" +
-        "Khách hàng: " + payload.clientName + "\n" +
-        "Liên hệ (Zalo/Email): " + payload.contact + "\n" +
-        "Doanh nghiệp: " + payload.company + "\n" +
-        "Website / Fanpage: " + payload.websiteOrFanpage + "\n" +
-        "Kênh ưu tiên: " + payload.channels.join(", ").toUpperCase() + "\n" +
-        "Ngân sách dự kiến: " + payload.monthlyBudgetTier + " triệu VNĐ/tháng\n" +
-        "Ghi chú chi tiết:\n" + payload.notes + "\n";
 
       try {
         localStorage.setItem("htsolution_last_brief", JSON.stringify(payload));
@@ -455,39 +480,9 @@
 
       statusBox.className = "ht-form-status is-visible ht-form-status--ok";
       statusBox.textContent =
-        "Đã tạo và lưu hồ sơ Audit cho " + name + " (" + selectedChannels.join(", ").toUpperCase() + ") trên trình duyệt. " +
-        "Lưu ý: đây là bản website tĩnh chưa nối API máy chủ email, vui lòng nhấn Tải Brief (.txt) hoặc Sao chép tóm tắt để gửi cho bộ phận Account của HTSOLUTIONLLC.";
-
-      if (downloadBtn) downloadBtn.hidden = false;
-      if (copyBtn) copyBtn.hidden = false;
+        "Audit dossier recorded for " + name + " (" + selectedChannels.join(", ").toUpperCase() + "). " +
+        "Note: This is a static site without a backend email dispatch server; your submission has been saved locally in your browser.";
     });
-
-    if (downloadBtn) {
-      downloadBtn.addEventListener("click", function () {
-        if (!latestBriefText) return;
-        const blob = new Blob([latestBriefText], { type: "text/plain;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "HTSOLUTIONLLC-Audit-Brief.txt";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      });
-    }
-
-    if (copyBtn) {
-      copyBtn.addEventListener("click", function () {
-        if (!latestBriefText || !navigator.clipboard) return;
-        navigator.clipboard.writeText(latestBriefText).then(function () {
-          copyBtn.textContent = "Đã sao chép Brief";
-          setTimeout(function () {
-            copyBtn.textContent = "Sao chép tóm tắt";
-          }, 2200);
-        });
-      });
-    }
   }
 
   /* --------------------------------- Focus-in Rescue inside Pinned Acts -- */
@@ -497,6 +492,8 @@
       if (!(target instanceof Element)) return;
       const pinned = target.closest('[data-sc-act="pin"]');
       if (!pinned) return;
+      const stage = pinned.querySelector("[data-sc-stage], .sc-stage");
+      if (!stage || getComputedStyle(stage).position !== "sticky") return;
       const rect = pinned.getBoundingClientRect();
       if (rect.top > 0 || rect.bottom < window.innerHeight) {
         window.scrollTo({
@@ -509,7 +506,6 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     initMobileNav();
-    initChannelTrace();
     initWorkbench();
     initLeadForm();
     initPinFocusHelper();
